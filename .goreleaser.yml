@@ -22,12 +22,8 @@ builds:
 
 archives:
   - id: gotls
+    format: binary
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE*
-      - README*
-      - CHANGELOG*
-      - docs/**/*
 
 checksum:
   name_template: "checksums.txt"
