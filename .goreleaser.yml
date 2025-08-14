@@ -17,17 +17,13 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
-    ldflags: "-s -w -X 'gotls/cmd.version={{.Version}}' -X 'gotls/cmd.commit={{.ShortCommit}}' -X 'gotls/cmd.date={{.Date}}'"
+    ldflags: "-s -w -X 'github.com/rodneyxr/gotls/cmd.version={{.Version}}' -X 'github.com/rodneyxr/gotls/cmd.commit={{.ShortCommit}}' -X 'github.com/rodneyxr/gotls/cmd.date={{.Date}}'"
     mod_timestamp: '{{ .CommitTimestamp }}'
 
 archives:
   - id: gotls
+    format: binary
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
-      - LICENSE*
-      - README*
-      - CHANGELOG*
-      - docs/**/*
 
 checksum:
   name_template: "checksums.txt"

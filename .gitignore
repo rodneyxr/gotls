@@ -28,3 +28,8 @@ certs/
 *.crt
 *.key
 *.pem
+
+# Goreleaser
+.semrel/
+# Semantic release generated changelog
+.generated-go-semantic-release-changelog.md
