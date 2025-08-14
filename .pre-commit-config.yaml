@@ -1,0 +1,51 @@
+# Pre-commit configuration
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^docs/'
+      - id: end-of-file-fixer
+        exclude: '^docs/'
+      - id: check-yaml
+      - id: check-added-large-files
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: go-fmt
+        name: go fmt
+        entry: gofmt
+        language: system
+        args: ["-s", "-w"]
+        files: '\.go$'
+
+      - id: go-vet
+        name: go vet
+        entry: go
+        language: system
+        args: ["vet", "./..."]
+        files: '\.go$'
+        pass_filenames: false
+
+      - id: go-test
+        name: go test
+        entry: go
+        language: system
+        args: ["test", "./..."]
+        files: '\.go$'
+        pass_filenames: false
+
+      - id: go-generate
+        name: go generate
+        entry: go
+        language: system
+        args: ["generate", "./..."]
+        files: '\.go$'
+        pass_filenames: false
+
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        stages: [commit-msg]

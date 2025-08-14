@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+
+# Pre-commit hook script
+# This script runs before each commit and ensures code quality
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Check if Go files are properly formatted
+echo "Checking Go formatting..."
+if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+    echo "❌ Go files are not formatted properly. Running gofmt..."
+    gofmt -s -w .
+    echo "✅ Files formatted. Please stage the changes and commit again."
+    exit 1
+fi
+
+# Run go vet
+echo "Running go vet..."
+if ! go vet ./...; then
+    echo "❌ go vet failed"
+    exit 1
+fi
+
+# Run tests
+echo "Running tests..."
+if ! go test ./...; then
+    echo "❌ Tests failed"
+    exit 1
+fi
+
+# Generate documentation
+echo "Generating documentation..."
+if ! go generate ./...; then
+    echo "❌ Documentation generation failed"
+    exit 1
+fi
+
+# Check if generated docs have changes and stage them
+if [ -n "$(git status --porcelain docs/)" ]; then
+    echo "📚 Documentation updated, staging changes..."
+    git add docs/
+fi
+
+# Validate commit message format (conventional commits)
+commit_regex='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\(.+\))?: .{1,50}'
+
+if [ -n "$1" ]; then
+    commit_msg_file="$1"
+    commit_msg=$(head -n1 "$commit_msg_file")
+
+    if ! echo "$commit_msg" | grep -qE "$commit_regex"; then
+        echo "❌ Invalid commit message format!"
+        echo "Commit messages must follow conventional commits format:"
+        echo "  type(scope): description"
+        echo ""
+        echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
+        echo "Example: feat(auth): add user authentication"
+        echo "Example: fix: resolve certificate parsing issue"
+        exit 1
+    fi
+fi
+
+echo "✅ All pre-commit checks passed!"
