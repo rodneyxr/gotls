@@ -1,12 +1,14 @@
 package crypt
 
 import (
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestGenerateCACert(t *testing.T) {
 	subject := "Test CA"
-	pair, err := GenerateCACert(subject)
+	pair, err := GenerateCACert(subject, 365*24*time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to generate CA certificate: %v", err)
 	}
@@ -22,7 +24,7 @@ func TestGenerateCACert(t *testing.T) {
 
 func TestGenerateServerCert(t *testing.T) {
 	// First generate CA
-	caPair, err := GenerateCACert("Test CA")
+	caPair, err := GenerateCACert("Test CA", 365*24*time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to generate CA certificate: %v", err)
 	}
@@ -31,7 +33,7 @@ func TestGenerateServerCert(t *testing.T) {
 	subject := "test.example.com"
 	sans := []string{"test.example.com", "api.test.example.com"}
 
-	serverPair, err := GenerateServerCert(caPair, subject, sans)
+	serverPair, err := GenerateServerCert(caPair, subject, sans, 365*24*time.Hour)
 	if err != nil {
 		t.Fatalf("Failed to generate server certificate: %v", err)
 	}
@@ -42,6 +44,43 @@ func TestGenerateServerCert(t *testing.T) {
 
 	if len(serverPair.Cert.DNSNames) != len(sans) {
 		t.Errorf("Expected %d DNS names, got %d", len(sans), len(serverPair.Cert.DNSNames))
+	}
+}
+
+func TestCertificatesUseConfiguredExpiry(t *testing.T) {
+	const expiry = 730 * 24 * time.Hour
+
+	before := time.Now().Add(expiry).Truncate(time.Second)
+	caPair, err := GenerateCACert("Test CA", expiry)
+	if err != nil {
+		t.Fatalf("GenerateCACert() error = %v", err)
+	}
+
+	serverPair, err := GenerateServerCert(caPair, "test.example.com", nil, expiry)
+	if err != nil {
+		t.Fatalf("GenerateServerCert() error = %v", err)
+	}
+	after := time.Now().Add(expiry).Truncate(time.Second)
+
+	for name, cert := range map[string]*CertificatePair{"CA": caPair, "server": serverPair} {
+		if cert.Cert.NotAfter.Before(before) || cert.Cert.NotAfter.After(after) {
+			t.Errorf("%s certificate expires at %s; want between %s and %s", name, cert.Cert.NotAfter, before, after)
+		}
+	}
+}
+
+func TestGenerateCertificatesRejectInvalidExpiry(t *testing.T) {
+	if _, err := GenerateCACert("Test CA", 0); err == nil || !strings.Contains(err.Error(), "greater than zero") {
+		t.Errorf("GenerateCACert() error = %v, want positive-expiry error", err)
+	}
+
+	caPair, err := GenerateCACert("Test CA", 24*time.Hour)
+	if err != nil {
+		t.Fatalf("GenerateCACert() error = %v", err)
+	}
+
+	if _, err := GenerateServerCert(caPair, "test.example.com", nil, -time.Hour); err == nil || !strings.Contains(err.Error(), "greater than zero") {
+		t.Errorf("GenerateServerCert() error = %v, want positive-expiry error", err)
 	}
 }
 

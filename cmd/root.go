@@ -4,8 +4,12 @@ package cmd
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/rodneyxr/gotls/pkg/crypt"
 
@@ -18,6 +22,7 @@ var (
 	caCert          string
 	caKey           string
 	outputDirectory string
+	expiry          string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -68,16 +73,37 @@ func init() {
 	rootCmd.Flags().StringVar(&caCert, "ca-cert", "", "The path to an existing CA certificate file (ex: ca.crt)")
 	rootCmd.Flags().StringVar(&caKey, "ca-key", "", "The path to an existing CA key file (ex: ca.key)")
 	rootCmd.Flags().StringVarP(&outputDirectory, "output-directory", "d", "certs", "The directory to write the certificates to")
+	rootCmd.Flags().StringVar(&expiry, "expiry", "365", "Certificate validity as positive days or years (for example, 365 or 1y)")
+}
+
+func parseExpiry(value string) (time.Duration, error) {
+	unit := 24 * time.Hour
+	days := value
+	if strings.HasSuffix(value, "y") {
+		unit *= 365
+		days = strings.TrimSuffix(value, "y")
+	}
+
+	count, err := strconv.ParseInt(days, 10, 64)
+	if err != nil || count <= 0 || count > math.MaxInt64/int64(unit) {
+		return 0, fmt.Errorf("expiry must be a positive number of days or years (for example, 365 or 1y)")
+	}
+
+	return time.Duration(count) * unit, nil
 }
 
 func generateCertificates() error {
+	expiryDuration, err := parseExpiry(expiry)
+	if err != nil {
+		return err
+	}
+
 	// Create the output directory if it doesn't exist
 	if err := os.MkdirAll(outputDirectory, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
 	var caPair *crypt.CertificatePair
-	var err error
 
 	if caCert != "" && caKey != "" {
 		// Load the existing CA certificate and key
@@ -88,7 +114,7 @@ func generateCertificates() error {
 		fmt.Printf("Loaded existing CA certificate from %s\n", caCert)
 	} else {
 		// Generate the CA certificate
-		caPair, err = crypt.GenerateCACert(caName)
+		caPair, err = crypt.GenerateCACert(caName, expiryDuration)
 		if err != nil {
 			return fmt.Errorf("failed to generate CA certificate: %w", err)
 		}
@@ -108,7 +134,7 @@ func generateCertificates() error {
 		subject, sans := crypt.GetSubjectAndSANsForService(service)
 		filename := crypt.GetFilenameForService(service)
 
-		serverPair, err := crypt.GenerateServerCert(caPair, subject, sans)
+		serverPair, err := crypt.GenerateServerCert(caPair, subject, sans, expiryDuration)
 		if err != nil {
 			return fmt.Errorf("failed to generate certificate for %s: %w", service, err)
 		}
