@@ -62,7 +62,11 @@ func LoadCACert(certPath, keyPath string) (*CertificatePair, error) {
 }
 
 // GenerateCACert generates a self-signed CA certificate
-func GenerateCACert(subject string) (*CertificatePair, error) {
+func GenerateCACert(subject string, expiry time.Duration) (*CertificatePair, error) {
+	if expiry <= 0 {
+		return nil, fmt.Errorf("expiry must be greater than zero")
+	}
+
 	// Generate private key
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -76,7 +80,7 @@ func GenerateCACert(subject string) (*CertificatePair, error) {
 			CommonName: subject,
 		},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		NotAfter:              time.Now().Add(expiry),
 		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
@@ -102,7 +106,11 @@ func GenerateCACert(subject string) (*CertificatePair, error) {
 }
 
 // GenerateServerCert generates a server certificate signed by the CA
-func GenerateServerCert(caPair *CertificatePair, subject string, sans []string) (*CertificatePair, error) {
+func GenerateServerCert(caPair *CertificatePair, subject string, sans []string, expiry time.Duration) (*CertificatePair, error) {
+	if expiry <= 0 {
+		return nil, fmt.Errorf("expiry must be greater than zero")
+	}
+
 	// Generate private key
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -139,7 +147,7 @@ func GenerateServerCert(caPair *CertificatePair, subject string, sans []string) 
 			CommonName: subject,
 		},
 		NotBefore:   time.Now(),
-		NotAfter:    time.Now().Add(365 * 24 * time.Hour),
+		NotAfter:    time.Now().Add(expiry),
 		KeyUsage:    x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		DNSNames:    dnsNames,
